@@ -27,7 +27,7 @@ Teshio does not promise a fixed return. A position may generate little or no fee
 
 ## Design status
 
-The protocol is at the specification and feasibility-validation stage. The first implementation milestone is to prove that a Teshio realm can safely custody a GnoSwap position NFT, collect fees as its owner, account for the received GRC-20 tokens, and enforce mutually exclusive principal and fee claims.
+The repository now contains an initial custody-only realm at `contract/r/teshio/protocol.gno`. It implements position eligibility checks, NFT transfer into Teshio, and post-transfer ownership verification. This source has not yet been compiled or exercised on Onyx testnet. Fee collection, fee accounting, claim issuance, and principal redemption are not implemented.
 
 See [docs/PROTOCOL_SPEC.md](docs/PROTOCOL_SPEC.md) for the initial lifecycle and unresolved security questions.
 
