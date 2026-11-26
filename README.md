@@ -1,36 +1,55 @@
 # Teshio Protocol
 
-Teshio is an experimental Gno-native protocol for separating the principal claim on a GnoSwap liquidity position from the right to receive its future swap fees for a defined term.
+Teshio is an experimental Gno-native protocol exploring the separation of principal ownership and future fee rights attached to GnoSwap liquidity positions.
 
-The initial design targets **Gno testnet**. It is a research and prototype project, not a production financial product.
+The initial implementation targets **Gno testnet (Onyx)**. This is prototype software, not a production financial product.
 
-## Core idea
+## Product mechanism
 
-A liquidity provider deposits an eligible, unstaked GnoSwap position NFT into a Teshio vault. The vault retains custody of the NFT and accounts for two distinct claims:
+A liquidity provider deposits an eligible, unstaked GnoSwap position NFT into a Teshio agreement. Teshio holds the NFT and records two distinct economic claims:
 
-- **Principal claim:** the right to recover the underlying position after the agreement expires.
-- **Fee claim:** the right to receive eligible swap fees collected during the agreement term.
+- **Principal claim:** the right to recover the same underlying position NFT after the agreement is closed and final fee accounting is complete.
+- **Fee claim:** the right to withdraw the actual net swap fees Teshio collects while the agreement is active.
 
-The fee claim may be transferred or sold. The principal claim remains locked until the fee claim expires and the vault has completed its accounting.
+The fee claim is not a promise of fixed yield. A position may generate little or no fees, and its underlying token composition and market value can change.
 
-Teshio does not promise a fixed return. A position may generate little or no fees, and its underlying token balances and market value can change.
+## Settlement rule
+
+GnoSwap's current `CollectFee` interface does not accept a historical timestamp or fee-growth cutoff. Teshio therefore cannot enforce an exact wall-clock maturity boundary.
+
+The prototype uses an **earliest close time** instead:
+
+1. The agreement cannot close before its earliest close time.
+2. Once that time has passed, anyone may trigger closure.
+3. Teshio performs a final fee collection during the close transaction.
+4. The actual net amounts collected are credited to the fee claimant.
+5. After closure, no further fees can be collected under that agreement.
+6. The principal claimant can redeem the NFT after final accounting.
+
+If closing is delayed, fees accrued between the earliest close time and the successful close transaction are included. This is a deliberate v0.2 rule and must be disclosed to buyers.
 
 ## Initial scope
 
-- One GnoSwap position per agreement.
-- Unstaked position NFTs only.
-- Fixed maturity selected at creation.
-- Seller-defined upfront price for the fee claim.
-- Fees distributed only after they have actually been collected by the vault.
-- Principal redemption after maturity and settlement.
-- No leverage, lending, liquidation engine, AMM, or oracle dependency in the first prototype.
+- One unstaked GnoSwap position NFT per agreement.
+- One principal claimant and one fee claimant.
+- Seller-defined asking price.
+- Actual collected fees only; no guaranteed return.
+- Earliest close time and permissionless close.
+- No leverage, lending, liquidation, oracle dependency, or secondary market in the first prototype.
 
-## Design status
+## Engineering status
 
-The repository now contains an initial custody-only realm at `contract/r/teshio/protocol.gno`. It implements position eligibility checks, NFT transfer into Teshio, and post-transfer ownership verification. This source has not yet been compiled or exercised on Onyx testnet. Fee collection, fee accounting, claim issuance, and principal redemption are not implemented.
+The repository contains an initial custody realm at `contract/r/teshio/protocol.gno`. Its source-level calls were compared with the current public GnoSwap source. It has **not** yet been compiled, deployed, or exercised on Onyx testnet.
 
-See [docs/PROTOCOL_SPEC.md](docs/PROTOCOL_SPEC.md) for the initial lifecycle and unresolved security questions.
+Not yet implemented: agreement purchase, fee collection accounting, fee withdrawals, close, and principal redemption.
 
-## Disclaimer
+See:
+- [Protocol specification](docs/PROTOCOL_SPEC.md)
+- [Settlement model](docs/SETTLEMENT_MODEL.md)
+- [GnoSwap integration analysis](docs/GNOSWAP_INTEGRATION.md)
+- [Custody test plan](docs/CUSTODY_TEST_PLAN.md)
+- [Source API audit](docs/SOURCE_API_AUDIT.md)
 
-This repository contains experimental smart-contract software. It has not been audited. Do not deposit assets of value.
+## Risk notice
+
+The code is unaudited and experimental. Do not deposit assets of value.
