@@ -1,59 +1,46 @@
 # Teshio Custody Test Plan
 
 **Target:** Onyx testnet  
-**Contract under test:** `contract/r/teshio/protocol.gno`  
+**Contract:** `contract/r/teshio/protocol.gno`  
 **Status:** Test plan only; no live testnet execution claimed.
 
-## Current contract surface
+## Current methods
 
 - `DepositPosition(cur, positionID)`
 - `GetEscrow(positionID)`
 - `IsPositionEscrowed(positionID)`
 
-The current contract intentionally has no withdrawal method and no fee-claim marketplace.
+There is no fee collection, agreement purchase, fee withdrawal, close, or NFT redemption method yet.
 
 ## Preconditions
 
-1. Deploy Teshio to Onyx testnet.
-2. Identify the deployed GNFT and GnoSwap position realm paths and confirm they match the imported paths in the source.
+1. Compile and deploy Teshio to Onyx.
+2. Confirm deployed GNFT and position realm paths match the imports.
 3. Create an unstaked GnoSwap position with non-zero liquidity.
-4. Confirm the connected wallet is the NFT owner.
-5. Approve the deployed Teshio realm address for that exact NFT using GNFT `Approve`.
+4. Confirm the test wallet owns the NFT.
+5. Approve the Teshio realm for that exact token ID.
 
 ## Positive test
 
-1. Read GNFT `OwnerOf(positionID)`; it must return the user's address.
-2. Read Teshio `IsPositionEscrowed(positionID)`; it must return false.
-3. Call Teshio `DepositPosition(positionID)`.
-4. Read GNFT `OwnerOf(positionID)`; it must now return the Teshio realm address.
-5. Read Teshio `GetEscrow(positionID)`; it must return the original depositor and true.
-6. Read Teshio `IsPositionEscrowed(positionID)`; it must return true.
+1. GNFT `OwnerOf` returns the user's address.
+2. Teshio `IsPositionEscrowed` returns false.
+3. Call Teshio `DepositPosition`.
+4. GNFT `OwnerOf` now returns the Teshio realm address.
+5. Teshio `GetEscrow` returns the original depositor and true.
+6. Teshio `IsPositionEscrowed` returns true.
 
 ## Negative tests
 
-- Deposit without NFT approval: transaction must fail and no escrow record may be written.
-- Deposit an NFT owned by another account: transaction must fail.
-- Deposit an already escrowed position ID: transaction must fail.
-- Deposit a burned position: transaction must fail.
-- Deposit a zero-liquidity position: transaction must fail.
-- After successful deposit, former owner attempts direct transfer: transaction must fail.
-- Pass a non-existent position ID: transaction must fail without creating an escrow record.
+- Deposit without NFT approval.
+- Deposit an NFT owned by another account.
+- Deposit the same position twice.
+- Deposit a burned position.
+- Deposit a zero-liquidity position.
+- Former owner attempts direct transfer after deposit.
+- Deposit a nonexistent position ID.
 
-## Atomicity checks
-
-After each expected failure, confirm:
-
-- GNFT owner is unchanged;
-- `IsPositionEscrowed` is false unless the earlier deposit succeeded;
-- no partial or duplicate escrow record exists.
+Every expected failure must leave ownership and escrow state unchanged.
 
 ## Exit criteria
 
-Custody is validated only after the positive test and every negative test pass against the deployed Onyx realm. Source inspection alone is not acceptance evidence.
-
-## Known limitations
-
-- The current contract is not yet compiled or deployed.
-- It has no withdrawal, fee collection, or fee distribution methods.
-- It assumes the imported GnoSwap realm paths and APIs are available on the target testnet.
-- A full integration test is still required to verify realm-call context and NFT approval behavior in the deployed environment.
+Custody is validated only when the contract compiles and the positive and negative tests pass against Onyx. Source inspection alone is not acceptance evidence.
