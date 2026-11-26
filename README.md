@@ -37,6 +37,12 @@ If closing is delayed, fees accrued between the earliest close time and the succ
 - Earliest close time and permissionless close.
 - No leverage, lending, liquidation, oracle dependency, or secondary market in the first prototype.
 
+## Automated validation
+
+GitHub Actions runs the Gno formatter, linter, and a local-node realm-load check against the current Gno testnet package imports. A passing workflow is required before treating the contract as compilation-validated. The workflow does not deploy Teshio to a shared network or submit transactions.
+
+See [Gno validation workflow](.github/workflows/gno-validation.yml).
+
 ## Engineering status
 
 The repository contains an initial custody realm at `contract/r/teshio/protocol.gno`. Its source-level calls were compared with the current public GnoSwap source. It has **not** yet been compiled, deployed, or exercised on Onyx testnet.
