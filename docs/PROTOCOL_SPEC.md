@@ -2,7 +2,7 @@
 
 **Status:** Draft  
 **Target:** Gno testnet  
-**Version:** 0.1.0
+**Version:** 0.2.0
 
 ## 1. Problem
 
@@ -17,115 +17,99 @@ Teshio explores whether these rights can be separated through an on-chain agreem
 
 ## 2. Proposed agreement
 
-An agreement is created when a provider deposits an eligible GnoSwap position NFT into Teshio.
+An agreement is created when a provider deposits an eligible, unstaked GnoSwap position NFT into Teshio.
 
 The agreement records:
 
-- agreement ID;
-- GnoSwap position ID;
-- depositor / principal claimant;
-- fee claimant;
-- supported token paths;
-- creation time and maturity time;
-- upfront consideration and payment status;
-- collected fee amounts by token;
-- fee distribution status;
-- principal redemption status;
-- lifecycle status.
+- agreement ID and GnoSwap position ID;
+- principal claimant and fee claimant;
+- creation time and earliest close time;
+- agreed purchase consideration and payment status;
+- token0 and token1 fee balances collected by Teshio;
+- fee-claim withdrawal balances;
+- close and principal-redemption status.
 
-The vault owns the deposited NFT for the agreement's full active term.
+Teshio owns the NFT while the agreement is active and closed-but-not-redeemed.
 
 ## 3. Rights
 
 ### Principal claim
 
-The principal claimant is entitled to receive the original GnoSwap position NFT after maturity, provided that the agreement has been settled and no fee distribution remains outstanding.
+The principal claimant is entitled to receive the original GnoSwap position NFT after the agreement is closed and final fee collection is accounted for.
 
-The principal claim does not guarantee a fixed monetary value. The underlying position remains exposed to price movement, impermanent loss, range inactivity, protocol changes, and other risks inherent to concentrated liquidity.
+This is a claim to the same LP position NFT, not a guarantee of its monetary value. The position remains exposed to price movement, impermanent loss, range inactivity, protocol changes, and other concentrated-liquidity risks.
 
 ### Fee claim
 
-The fee claimant is entitled to the eligible swap fees actually collected by the vault during the agreement term, net of any GnoSwap withdrawal fee and any explicitly disclosed protocol fee.
+The fee claimant is entitled to the actual net swap fees collected by Teshio while the agreement is active, including the final collection made during close.
 
-The fee claimant is not entitled to a guaranteed amount. If the position earns no fees, the fee claim may be worth zero.
+The fee claim is not a fixed or guaranteed return. If the position earns no fees, the claim may be worth zero.
 
-## 4. Initial lifecycle
+## 4. Lifecycle
 
-1. **Create:** provider specifies an eligible position, maturity, fee-claim price, and supported terms.
-2. **Deposit:** provider transfers the unstaked position NFT to the Teshio vault.
-3. **Verify:** Teshio verifies that the vault owns the NFT and records the agreement.
+1. **Create:** provider specifies a position, earliest close time and asking price.
+2. **Approve and deposit:** provider approves the Teshio realm to transfer the specific NFT, then deposits it.
+3. **Verify:** Teshio verifies the NFT exists, is eligible and is held by the Teshio realm.
 4. **Purchase:** buyer pays the agreed consideration and becomes the fee claimant.
-5. **Accrue:** swap fees accumulate within the GnoSwap position.
-6. **Collect:** the vault calls GnoSwap's fee-collection method as the NFT owner.
-7. **Account:** Teshio records actual token amounts received and makes them claimable by the fee claimant.
-8. **Mature:** after the maturity timestamp, no new fees are attributed to the agreement.
-9. **Settle:** any outstanding eligible fees are collected and made claimable.
-10. **Redeem:** the principal claimant retrieves the NFT after fee accounting is complete.
+5. **Collect:** while active, anyone may trigger fee collection. Teshio credits the actual net amounts returned by GnoSwap.
+6. **Close:** once earliest close time is reached, anyone may call close. Teshio performs one final fee collection and marks the agreement closed.
+7. **Claim fees:** the fee claimant may withdraw its recorded token0 and token1 balances.
+8. **Redeem principal:** the original principal claimant may retrieve the NFT after close and final accounting.
 
-The implementation must define exact cutoff semantics. A transaction's block time and execution order must not permit both parties to claim the same fee period.
+## 5. Important cutoff limitation
 
-## 5. GnoSwap integration facts to validate
+GnoSwap's `CollectFee` interface has no timestamp or historical fee-growth cutoff parameter. It collects all fees currently owed when the call executes. Therefore, Teshio cannot guarantee an exact wall-clock cutoff at earliest close time.
 
-The current GnoSwap position implementation exposes CollectFee, which checks that the caller is the position owner or configured operator. The method sends collected swap fees to that caller. This suggests that a Teshio vault holding the NFT can collect fees into its own realm address, then distribute the received tokens under Teshio's own accounting.
+For v0.2, earliest close time is the first time at which the agreement may be closed, not an automatic expiry. The fee claim remains active until the successful close transaction. Fees accrued between earliest close time and execution are included in the final collection. This delay risk must be disclosed to buyers.
 
-GnoSwap's scenario test also demonstrates transferring a position NFT and collecting fees under the new owner's address.
+See [Settlement Model](SETTLEMENT_MODEL.md).
 
-Relevant source references:
-
-- [GnoSwap position implementation](https://github.com/gnoswap-labs/gnoswap/blob/main/contract/r/gnoswap/position/v1/position.gno)
-- [GnoSwap NFT transfer and fee-collection scenario](https://github.com/gnoswap-labs/gnoswap/blob/main/contract/r/scenario/position/position_transfer_with_collect_fee_filetest.gno)
-
-These source-level facts do not yet prove that the proposed Teshio realm integration compiles or behaves correctly on the target testnet. That must be tested directly.
-
-## 6. Non-goals for the first prototype
+## 6. Non-goals
 
 - Fixed or guaranteed yield.
-- Lending or borrowing against fee claims.
-- Leverage or liquidation.
+- Lending, borrowing, leverage or liquidation.
 - Automated market making for fee claims.
 - Oracle-based pricing.
 - Cross-chain assets.
 - Staked GnoSwap positions.
 - Multiple positions bundled into one agreement.
+- Secondary trading of claims in the first prototype.
 
 ## 7. Security invariants
 
-The implementation must preserve all of the following:
-
-1. A position NFT can back at most one active agreement.
-2. The vault cannot transfer or redeem the NFT while the fee claim is active.
-3. The principal claimant cannot redeem before maturity and completed settlement.
-4. The fee claimant cannot withdraw more tokens than the vault actually received and credited.
-5. Every collected token amount is accounted for exactly once.
-6. Repeated collection or claim calls cannot duplicate credit or payment.
+1. A position NFT backs at most one active agreement.
+2. The NFT remains in Teshio custody until close and principal redemption.
+3. The principal claimant cannot redeem before close.
+4. The fee claimant cannot withdraw more than Teshio actually collected and credited.
+5. Every collected amount is accounted for exactly once.
+6. Repeated collection and close calls cannot duplicate credit or payment.
 7. Failed token transfers must not leave accounting marked as paid.
-8. Agreement terms cannot be changed after the fee claim is purchased, except for explicitly defined administrative emergency actions.
-9. Only supported, verified GnoSwap position contracts and token paths may be used.
-10. A paused agreement must have a documented recovery path that does not silently confiscate either claim.
+8. Purchased agreement terms cannot be changed.
+9. Only the verified GnoSwap position contract and supported token contracts are accepted.
+10. The principal claimant can redeem after close even if the fee claimant has not withdrawn already-credited fees.
 
-## 8. Open questions before implementation
+## 8. Open integration questions
 
-- Exact GnoSwap realm paths and callable signatures on the current Onyx testnet deployment.
-- Whether the GnoSwap NFT transfer flow can transfer directly from a user to the Teshio realm using the deployed GRC-721 interface.
-- How the vault safely invokes CollectFee through inter-realm calls.
-- How Teshio verifies the NFT owner and position metadata on-chain.
-- Whether collected GRC-20 tokens can be held and transferred by the Teshio realm using the deployed token interfaces.
-- Whether fee collection can be permissionlessly triggered, and how keeper incentives are handled.
-- Exact maturity cutoff and treatment of fees accrued before maturity but collected afterward.
-- Recovery behavior if GnoSwap is halted, upgraded, or its position interface changes.
+- Confirm exact package paths and deployed APIs on Onyx.
+- Prove the approval and NFT transfer sequence in a testnet transaction.
+- Prove Teshio can call `CollectFee` through an inter-realm call and receive both fee tokens.
+- Confirm the exact GRC-20 transfer interfaces and token balance accounting.
+- Confirm transaction atomicity when a downstream inter-realm call panics.
+- Confirm how Gno timestamps are exposed and compared in the current toolchain.
+- Define emergency recovery if GnoSwap is halted or its interfaces change.
 
-## 9. Prototype acceptance criteria
+## 9. Contract acceptance criteria
 
-The first end-to-end test is successful only when:
-
-1. a test user deposits an eligible unstaked GnoSwap position NFT into Teshio;
-2. Teshio proves on-chain custody of that exact NFT;
-3. a second test user purchases the fee claim using a test token;
-4. a swap generates fees for the position;
-5. Teshio collects those fees as the NFT owner;
-6. the fee claimant withdraws exactly the amount credited;
-7. the principal claimant cannot withdraw the NFT before maturity;
-8. after maturity and settlement, the principal claimant can retrieve the NFT;
-9. replayed calls and duplicate claims fail without changing balances.
+1. A user deposits an eligible unstaked position NFT.
+2. Teshio proves custody of that exact NFT.
+3. A second user purchases the fee claim.
+4. A swap generates fees for the position.
+5. Teshio collects fees as NFT owner and credits actual returned amounts.
+6. The fee claimant withdraws exactly the credited amounts.
+7. Close is rejected before earliest close time.
+8. Any account can close after earliest close time.
+9. Close performs final collection and permanently ends fee accrual under the agreement.
+10. Principal redemption fails before close and succeeds after close.
+11. Replayed calls and duplicate claims cannot alter balances.
 
 No user interface should be built before these contract-level acceptance criteria are met.
