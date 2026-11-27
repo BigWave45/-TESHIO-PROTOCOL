@@ -13,17 +13,34 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Check out Teshio
         uses: actions/checkout@v4
 
-      - name: Install official Gno toolchain
-        shell: bash
+      - name: Check out Gno toolchain source
+        uses: actions/checkout@v4
+        with:
+          repository: gnolang/gno
+          path: gno-src
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+          cache-dependency-path: gno-src/go.sum
+
+      - name: Build and install Gno tools from source
+        working-directory: gno-src
         run: |
-          curl -fsSL https://raw.githubusercontent.com/gnolang/gno/master/misc/install.sh | sh
-          echo "$HOME/.gno/bin" >> "$GITHUB_PATH"
+          make install
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Verify Gno toolchain
+        run: |
           gno version
+          command -v gno
 
       - name: Format check
         working-directory: contract/r/teshio
@@ -36,6 +53,6 @@ jobs:
         working-directory: contract/r/teshio
         run: gno lint ./...
 
-      - name: Compile and run package tests
+      - name: Run package tests
         working-directory: contract/r/teshio
-        run: gno test ./... -v
+        run: gno test ./...
