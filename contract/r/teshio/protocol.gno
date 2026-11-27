@@ -1,4 +1,4 @@
-package protocol
+package teshio
 
 import (
 	"gno.land/p/nt/grc721/v0"
