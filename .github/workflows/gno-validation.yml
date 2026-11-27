@@ -13,37 +13,29 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Check out Teshio
         uses: actions/checkout@v4
 
-      - name: Install Gno toolchain
+      - name: Install official Gno toolchain
         shell: bash
         run: |
           curl -fsSL https://raw.githubusercontent.com/gnolang/gno/master/misc/install.sh | sh
           echo "$HOME/.gno/bin" >> "$GITHUB_PATH"
-          "$HOME/.gno/bin/gno" version
-          "$HOME/.gno/bin/gnodev" --help >/dev/null
+          gno version
 
-      - name: Format and lint realm
+      - name: Format check
         working-directory: contract/r/teshio
-        run: |
-          gno fmt .
-          gno lint .
-
-      - name: Resolve imports and load realm in local Gno node
         shell: bash
         run: |
-          set +e
-          timeout 120s gnodev staging \
-            -remote gno.land=https://rpc.latest.testnets.gno.land:443 \
-            ./contract/r/teshio 2>&1 | tee /tmp/teshio-gnodev.log
-          status=${PIPESTATUS[0]}
-          set -e
-          if grep -q "READY" /tmp/teshio-gnodev.log; then
-            echo "Teshio realm loaded by gnodev."
-            exit 0
-          fi
-          echo "gnodev did not reach READY (exit $status)."
-          exit 1
+          gno fmt ./...
+          git diff --exit-code -- '*.gno'
+
+      - name: Lint
+        working-directory: contract/r/teshio
+        run: gno lint ./...
+
+      - name: Compile and run package tests
+        working-directory: contract/r/teshio
+        run: gno test ./... -v
